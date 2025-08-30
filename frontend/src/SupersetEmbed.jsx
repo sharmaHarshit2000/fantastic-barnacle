@@ -1,49 +1,55 @@
-import React, { useEffect, useState } from "react";
+// SupersetEmbed.jsx
+import React, { useEffect } from "react";
 import { embedDashboard } from "@superset-ui/embedded-sdk";
 
-const SupersetEmbed = ({ companyId }) => {
-  const [loading, setLoading] = useState(true);
+const DASHBOARD_ID = "0ca85b14-d815-4107-8f5f-adea5e49bc39";
+const SUPERSET_DOMAIN = "https://superset-develop.solargraf.com";
+const BACKEND_URL = "https://fantastic-barnacle.onrender.com"; // your backend
 
+export default function SupersetEmbed({ companyId }) {
   useEffect(() => {
-    async function loadDashboard() {
-      setLoading(true);
+    async function load() {
       try {
+        // 🔑 get guest token from backend
         const res = await fetch(
-          `https://fantastic-barnacle.onrender.com/superset-token?companyId=${companyId}`
+          `${BACKEND_URL}/superset-token?companyId=${companyId}`
         );
         const data = await res.json();
 
-        if (data?.token) {
-          await embedDashboard({
-            id: "0ca85b14-d815-4107-8f5f-adea5e49bc39",
-            supersetDomain: "https://superset-develop.solargraf.com",
-            mountPoint: document.getElementById("superset-container"),
-            fetchGuestToken: async () => data.token,
-            dashboardUiConfig: { hideTitle: true, hideChartControls: true },
-          });
+        if (!data.token) {
+          console.error("No token returned:", data);
+          return;
         }
+
+        // 🖼️ embed dashboard
+        await embedDashboard({
+          id: DASHBOARD_ID,
+          supersetDomain: SUPERSET_DOMAIN,
+          mountPoint: document.getElementById("superset-container"),
+          fetchGuestToken: async () => data.token,
+          dashboardUiConfig: {
+            hideTitle: true,
+            hideChartControls: true,
+          },
+        });
       } catch (err) {
-        console.error("Failed to embed Superset:", err);
-      } finally {
-        setLoading(false);
+        console.error("Embed error:", err);
       }
     }
-    loadDashboard();
+
+    load();
   }, [companyId]);
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "90vh" }}>
-      {loading && (
-        <div className="loader">
-          <p>Loading dashboard…</p>
-        </div>
-      )}
-      <div
-        id="superset-container"
-        style={{ width: "100%", height: "100%", minHeight: "600px" }}
-      />
-    </div>
+    <div
+      id="superset-container"
+      style={{
+        width: "100%",
+        height: "90vh",
+        minHeight: "600px",
+        border: "1px solid #ddd",
+        borderRadius: "8px",
+      }}
+    />
   );
-};
-
-export default SupersetEmbed;
+}
