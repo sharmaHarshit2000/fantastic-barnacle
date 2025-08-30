@@ -1,55 +1,38 @@
-// SupersetEmbed.jsx
-import React, { useEffect } from "react";
-import { embedDashboard } from "@superset-ui/embedded-sdk";
-
-const DASHBOARD_ID = "0ca85b14-d815-4107-8f5f-adea5e49bc39";
-const SUPERSET_DOMAIN = "https://superset-develop.solargraf.com";
-const BACKEND_URL = "https://fantastic-barnacle.onrender.com"; // your backend
+import { useEffect, useState } from "react";
 
 export default function SupersetEmbed({ companyId }) {
+  const [token, setToken] = useState(null);
+
   useEffect(() => {
-    async function load() {
+    async function fetchToken() {
       try {
-        // 🔑 get guest token from backend
         const res = await fetch(
-          `${BACKEND_URL}/superset-token?companyId=${companyId}`
+          `https://fantastic-barnacle.onrender.com/superset-token?companyId=${companyId}`
         );
         const data = await res.json();
-
-        if (!data.token) {
-          console.error("No token returned:", data);
-          return;
-        }
-
-        // 🖼️ embed dashboard
-        await embedDashboard({
-          id: DASHBOARD_ID,
-          supersetDomain: SUPERSET_DOMAIN,
-          mountPoint: document.getElementById("superset-container"),
-          fetchGuestToken: async () => data.token,
-          dashboardUiConfig: {
-            hideTitle: true,
-            hideChartControls: true,
-          },
-        });
+        if (data.token) setToken(data.token);
       } catch (err) {
-        console.error("Embed error:", err);
+        console.error("Failed to fetch token:", err);
       }
     }
-
-    load();
+    fetchToken();
   }, [companyId]);
 
+  if (!token) {
+    return <p className="text-center p-4">Loading dashboard...</p>;
+  }
+
+  const iframeUrl = `https://superset-develop.solargraf.com/superset/dashboard/0ca85b14-d815-4107-8f5f-adea5e49bc39/?standalone=1&guest_token=${token}`;
+
   return (
-    <div
-      id="superset-container"
+    <iframe
+      src={iframeUrl}
       style={{
         width: "100%",
-        height: "90vh",
-        minHeight: "600px",
-        border: "1px solid #ddd",
-        borderRadius: "8px",
+        height: "100vh",
+        border: "none",
       }}
+      allow="fullscreen"
     />
   );
 }
