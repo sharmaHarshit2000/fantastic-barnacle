@@ -1,6 +1,5 @@
+// DashboardEmbed.jsx
 import React, { useState } from "react";
-
-const DASHBOARD_ID = "0ca85b14-d815-4107-8f5f-adea5e49bc39";
 
 export default function DashboardEmbed() {
   const [companyId, setCompanyId] = useState("");
@@ -11,9 +10,8 @@ export default function DashboardEmbed() {
   const handleLoadDashboard = async () => {
     setLoading(true);
     setError("");
-
     try {
-      const res = await fetch("https://fantastic-barnacle.onrender.com/superset-guest-token", {
+      const res = await fetch("http://localhost:4000/superset-guest-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyId })
@@ -57,7 +55,7 @@ export default function DashboardEmbed() {
           title="Superset Dashboard"
           width="100%"
           height="800px"
-          src={`https://superset-develop.solargraf.com/superset/dashboard/${DASHBOARD_ID}/?guest_token=${guestToken}`}
+          src={`https://superset-develop.solargraf.com/superset/dashboard/12/?guest_token=${guestToken}`}
           frameBorder="0"
         />
       )}

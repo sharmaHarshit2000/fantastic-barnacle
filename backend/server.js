@@ -5,19 +5,11 @@ import cors from "cors";
 
 const app = express();
 app.use(express.json());
+app.use(cors({ origin: "*", credentials: true }));
 
-// Allow your deployed frontend
-app.use(cors({
-  origin: "https://fantastic-barnacle-eta.vercel.app", // your frontend URL
-  credentials: true,
-}));
-
-// Superset config
 const SUPERSET_URL = "https://superset-develop.solargraf.com";
-const ADMIN_USERNAME = "admin";   // Superset admin
+const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "admin";
-const DASHBOARD_ID = "0ca85b14-d815-4107-8f5f-adea5e49bc39";
-const DATASET_ID = 25;
 
 app.post("/superset-guest-token", async (req, res) => {
   const { companyId } = req.body;
@@ -43,17 +35,19 @@ app.post("/superset-guest-token", async (req, res) => {
     const loginData = await loginRes.json();
     const adminToken = loginData.access_token;
 
-    // 2️⃣ Request guest token for this company
-    const guestRes = await fetch(`${SUPERSET_URL}/api/v1/dashboard/${DASHBOARD_ID}/guest_token`, {
+    // 2️⃣ Request guest token
+    const guestRes = await fetch(`${SUPERSET_URL}/api/v1/security/guest_token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${adminToken}`,
       },
       body: JSON.stringify({
-        user: `company_${companyId}`,           // matches RLS rule
+        user: `company_${companyId}`,
+        roles: ["Gamma"], 
+        resources: [{ type: "dashboard", id: 12 }],
         rls: [
-          { dataset_id: DATASET_ID, clause: `company_id = ${companyId}` }
+          { dataset_id: 25, clause: `company_id = ${companyId}` }
         ]
       })
     });
@@ -64,8 +58,6 @@ app.post("/superset-guest-token", async (req, res) => {
     }
 
     const guestData = await guestRes.json();
-
-    // 3️⃣ Return only the token to frontend
     res.json({ token: guestData.token });
 
   } catch (err) {
@@ -74,5 +66,4 @@ app.post("/superset-guest-token", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+app.listen(4000, () => console.log("Backend running on port 4000"));
