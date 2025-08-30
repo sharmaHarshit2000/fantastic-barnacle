@@ -1,10 +1,15 @@
+// DashboardEmbed.jsx
 import React, { useState } from "react";
 
 export default function DashboardEmbed() {
   const [companyId, setCompanyId] = useState("");
-  const [token, setToken] = useState("");
+  const [guestToken, setGuestToken] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleLoadDashboard = async () => {
+    setLoading(true);
+    setError("");
     try {
       const res = await fetch("https://fantastic-barnacle.onrender.com/superset-guest-token", {
         method: "POST",
@@ -12,19 +17,26 @@ export default function DashboardEmbed() {
         body: JSON.stringify({ companyId })
       });
 
-      if (!res.ok) throw new Error("Failed to fetch guest token");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to fetch guest token");
+      }
 
       const data = await res.json();
-      setToken(data.token);
+      setGuestToken(data.token);
+
     } catch (err) {
-      console.error("Error fetching guest token:", err);
-      alert("Failed to fetch guest token. Check console.");
+      console.error(err);
+      setError(err.message || "Error fetching token");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div style={{ padding: "20px" }}>
-      <h1>Superset Dashboard Embed</h1>
+      <h2>Superset Dashboard Embed</h2>
+
       <input
         type="text"
         placeholder="Enter Company ID"
@@ -32,18 +44,19 @@ export default function DashboardEmbed() {
         onChange={(e) => setCompanyId(e.target.value)}
         style={{ padding: "8px", width: "200px", marginRight: "10px" }}
       />
-      <button onClick={handleLoadDashboard} style={{ padding: "8px 12px" }}>
-        Load Dashboard
+      <button onClick={handleLoadDashboard} disabled={loading}>
+        {loading ? "Loading..." : "Load Dashboard"}
       </button>
 
-      {token && (
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      {guestToken && (
         <iframe
           title="Superset Dashboard"
-          src={`https://superset-develop.solargraf.com/superset/dashboard/0ca85b14-d815-4107-8f5f-adea5e49bc39/?guest_token=${token}`}
           width="100%"
           height="800px"
+          src={`https://superset-develop.solargraf.com/superset/dashboard/12/?guest_token=${guestToken}`}
           frameBorder="0"
-          style={{ marginTop: "20px" }}
         />
       )}
     </div>
