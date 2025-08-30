@@ -1,38 +1,29 @@
-import { useEffect, useState } from "react";
+import React, { useEffect } from "react";
+import { embedDashboard } from "@superset-ui/embedded-sdk";
 
-export default function SupersetEmbed({ companyId }) {
-  const [token, setToken] = useState(null);
-
+const SupersetEmbed = () => {
   useEffect(() => {
-    async function fetchToken() {
-      try {
-        const res = await fetch(
-          `https://fantastic-barnacle.onrender.com/superset-token?companyId=${companyId}`
-        );
-        const data = await res.json();
-        if (data.token) setToken(data.token);
-      } catch (err) {
-        console.error("Failed to fetch token:", err);
-      }
+    async function loadDashboard() {
+      // Request guest token from your backend
+      const res = await fetch("http://localhost:4000/superset-token");
+      const { token } = await res.json();
+
+      await embedDashboard({
+        id: "12", // dashboard id
+        supersetDomain: "https://superset-develop.solargraf.com",
+        mountPoint: document.getElementById("superset-container"),
+        fetchGuestToken: () => token,
+        dashboardUiConfig: {
+          hideTitle: true,
+          hideChartControls: true,
+          filters: { expanded: true },
+        },
+      });
     }
-    fetchToken();
-  }, [companyId]);
+    loadDashboard();
+  }, []);
 
-  if (!token) {
-    return <p className="text-center p-4">Loading dashboard...</p>;
-  }
+  return <div id="superset-container" style={{ height: "100vh", width: "100%" }} />;
+};
 
-  const iframeUrl = `https://superset-develop.solargraf.com/superset/dashboard/0ca85b14-d815-4107-8f5f-adea5e49bc39/?standalone=1&guest_token=${token}`;
-
-  return (
-    <iframe
-      src={iframeUrl}
-      style={{
-        width: "100%",
-        height: "100vh",
-        border: "none",
-      }}
-      allow="fullscreen"
-    />
-  );
-}
+export default SupersetEmbed;
