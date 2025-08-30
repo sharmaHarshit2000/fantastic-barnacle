@@ -6,15 +6,18 @@ import cors from "cors";
 const app = express();
 app.use(express.json());
 
-// Allow your frontend domain
+// Allow your deployed frontend
 app.use(cors({
-  origin: "https://fantastic-barnacle-eta.vercel.app", // or your deployed frontend
+  origin: "https://fantastic-barnacle-eta.vercel.app", // your frontend URL
   credentials: true,
 }));
 
+// Superset config
 const SUPERSET_URL = "https://superset-develop.solargraf.com";
-const ADMIN_USERNAME = "admin";
+const ADMIN_USERNAME = "admin";   // Superset admin
 const ADMIN_PASSWORD = "admin";
+const DASHBOARD_ID = "0ca85b14-d815-4107-8f5f-adea5e49bc39";
+const DATASET_ID = 25;
 
 app.post("/superset-guest-token", async (req, res) => {
   const { companyId } = req.body;
@@ -40,17 +43,17 @@ app.post("/superset-guest-token", async (req, res) => {
     const loginData = await loginRes.json();
     const adminToken = loginData.access_token;
 
-    // 2️⃣ Request guest token for the company
-    const guestRes = await fetch(`${SUPERSET_URL}/api/v1/dashboard/12/guest_token`, {
+    // 2️⃣ Request guest token for this company
+    const guestRes = await fetch(`${SUPERSET_URL}/api/v1/dashboard/${DASHBOARD_ID}/guest_token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${adminToken}`,
       },
       body: JSON.stringify({
-        user: `company_${companyId}`,           // matches your RLS
+        user: `company_${companyId}`,           // matches RLS rule
         rls: [
-          { dataset_id: 25, clause: `company_id = ${companyId}` }
+          { dataset_id: DATASET_ID, clause: `company_id = ${companyId}` }
         ]
       })
     });
