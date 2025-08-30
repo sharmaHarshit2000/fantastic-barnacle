@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors({
-  origin: ["https://fantastic-barnacle-eta.vercel.app"], // frontend domain
+  origin: ["https://fantastic-barnacle-eta.vercel.app", "https://fantastic-barnacle.onrender.com"],
   methods: ["GET", "POST"],
 }));
 app.use(express.json());
@@ -14,11 +14,11 @@ app.use(express.json());
 const SUPERSET_URL = "https://superset-develop.solargraf.com";
 const DASHBOARD_ID = "0ca85b14-d815-4107-8f5f-adea5e49bc39";
 
-// 🔑 Admin credentials (store securely in Render environment variables)
+// Admin credentials (store securely in environment variables)
 const ADMIN_USER = process.env.SUPERSET_ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.SUPERSET_ADMIN_PASS || "admin";
 
-// function to login and get a fresh JWT
+// Get Superset admin JWT
 async function getAdminJwt() {
   const res = await fetch(`${SUPERSET_URL}/api/v1/security/login`, {
     method: "POST",
@@ -32,16 +32,17 @@ async function getAdminJwt() {
   });
 
   if (!res.ok) throw new Error("Failed to login to Superset");
+
   const data = await res.json();
   return data.access_token;
 }
 
+// Endpoint to get guest token per companyId
 app.get("/superset-token", async (req, res) => {
   const { companyId } = req.query;
   if (!companyId) return res.status(400).json({ error: "companyId required" });
 
   try {
-    // always get a fresh admin token
     const adminJwt = await getAdminJwt();
 
     const payload = {
