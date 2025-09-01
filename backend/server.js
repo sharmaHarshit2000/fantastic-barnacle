@@ -9,7 +9,10 @@ app.use(express.json());
 // ✅ allow your frontend domain
 app.use(
   cors({
-    origin: "https://fantastic-barnacle.onrender.com",
+    origin: [
+      "https://fantastic-barnacle.onrender.com",   // backend
+      "https://fantastic-barnacle-eta.vercel.app", // frontend
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   })
