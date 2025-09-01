@@ -92,7 +92,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Handle preflight requests
-app.options('*', cors());
+//app.options('*', cors());
 
 // Test endpoint for debugging
 app.post('/api/superset/test-token', async (req, res) => {
