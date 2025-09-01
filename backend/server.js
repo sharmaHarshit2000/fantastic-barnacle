@@ -1,95 +1,95 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
+const express = require("express");
+const jwt = require("jsonwebtoken");
+const cors = require("cors");
+const fetch = require("node-fetch");
 
 const app = express();
 
-// CORS configuration for LIVE URLs
-app.use(cors({
-  origin: [
-    'https://fantastic-barnacle-eta.vercel.app', // Your Vercel frontend
-    'https://fantastic-barnacle.onrender.com',    // Your Render backend
-    'http://localhost:5173',                      // Local development
-    'http://localhost:3000'                       // Local development
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(
+  cors({
+    origin: [
+      "https://fantastic-barnacle-eta.vercel.app",
+      "https://fantastic-barnacle.onrender.com",
+      "http://localhost:5173",
+      "http://localhost:3000",
+    ],
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
-// Configuration
+// Superset config
+const SUPERSET_BASE_URL = "https://superset-develop.solargraf.com";
 const GUEST_TOKEN_JWT_SECRET = "SUp3rS3cr3tGue5tJWTKey_2025_08_07_XYZ";
 const GUEST_TOKEN_JWT_ALGO = "HS256";
-const SUPERSET_BASE_URL = "https://superset-develop.solargraf.com";
-const DASHBOARD_ID = "0ca85b14-d815-4107-8f5f-adea5e49bc39"; // UUID for embedding
+const DASHBOARD_ID = "0ca85b14-d815-4107-8f5f-adea5e49bc39";
 const DATASET_ID = 25;
 
 // Guest token endpoint
-app.post('/api/superset/guest-token', async (req, res) => {
+app.post("/api/superset/guest-token", async (req, res) => {
   try {
     const { companyId } = req.body;
-    
     if (!companyId) {
       return res.status(400).json({ error: "Company ID is required" });
     }
 
+    // Step 1: Build payload
     const payload = {
-      resources: [{ 
-        type: "dashboard", 
-        id: DASHBOARD_ID
-      }],
-      rls: [{ 
-        dataset: DATASET_ID, 
-        clause: `company_id = '${companyId}'` 
-      }],
       user: {
-        username: "embedded",
+        username: `company_${companyId}`,
         first_name: "Embedded",
-        last_name: "User"
+        last_name: "User",
       },
-      exp: Math.floor(Date.now() / 1000) + 300
+      resources: [{ type: "dashboard", id: DASHBOARD_ID }],
+      rls: [{ dataset: DATASET_ID, clause: `company_id = '${companyId}'` }],
     };
 
-    const token = jwt.sign(payload, GUEST_TOKEN_JWT_SECRET, { 
-      algorithm: GUEST_TOKEN_JWT_ALGO 
+    // Step 2: Sign with Superset guest secret
+    const signedJwt = jwt.sign(payload, GUEST_TOKEN_JWT_SECRET, {
+      algorithm: GUEST_TOKEN_JWT_ALGO,
+      expiresIn: "5m",
     });
 
-    res.json({ 
-      token, 
+    // Step 3: Request guest_token from Superset
+    const response = await fetch(
+      `${SUPERSET_BASE_URL}/api/v1/security/guest_token/`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${signedJwt}`,
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Superset error:", errorText);
+      return res
+        .status(500)
+        .json({ error: "Failed to fetch guest token", details: errorText });
+    }
+
+    const data = await response.json();
+
+    res.json({
+      token: data.token,
       supersetUrl: SUPERSET_BASE_URL,
-      dashboardId: DASHBOARD_ID
     });
-
   } catch (error) {
-    console.error('Token generation error:', error);
+    console.error("Guest token error:", error);
     res.status(500).json({ error: "Failed to generate guest token" });
   }
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'Backend server is running',
-    timestamp: new Date().toISOString(),
-    allowedOrigins: [
-      'https://fantastic-barnacle-eta.vercel.app',
-      'https://fantastic-barnacle.onrender.com',
-      'http://localhost:5173',
-      'http://localhost:3000'
-    ]
-  });
+// Health check
+app.get("/api/health", (req, res) => {
+  res.json({ status: "OK", time: new Date().toISOString() });
 });
-
-// Handle preflight requests
-app.options('/api/superset/guest-token', cors());
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`✅ Backend server running on port ${PORT}`);
-  console.log(`✅ Health check: http://localhost:${PORT}/api/health`);
-  console.log(`✅ Token endpoint: http://localhost:${PORT}/api/superset/guest-token`);
-  console.log(`✅ Allowed origins: Vercel frontend, Render backend, and localhost`);
+  console.log(`✅ Backend running at http://localhost:${PORT}`);
 });
