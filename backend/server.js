@@ -1,63 +1,81 @@
+// server.js
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
+import fetch from "node-fetch";
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
-const SUPERSET_URL = "https://superset-develop.solargraf.com";
-const ADMIN_USER = "admin";
-const ADMIN_PASS = "admin";
+// ✅ allow your frontend domain
+app.use(
+  cors({
+    origin: "https://fantastic-barnacle.onrender.com",
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
 
-let adminToken = null;
-let tokenExpire = null;
+const SUPERSET_BASE_URL = "https://superset-develop.solargraf.com";
+const SUPERSET_USERNAME = "admin";
+const SUPERSET_PASSWORD = "admin";
 
-// Login as admin and get access token
-async function loginAdmin() {
-  if (adminToken && tokenExpire && new Date() < tokenExpire) {
-    return adminToken; // reuse token if valid
-  }
-
-  const res = await fetch(`${SUPERSET_URL}/api/v1/security/login`, {
+// helper: login and get JWT
+async function getAccessToken() {
+  const resp = await fetch(`${SUPERSET_BASE_URL}/api/v1/security/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      username: ADMIN_USER,
-      password: ADMIN_PASS,
+      username: SUPERSET_USERNAME,
+      password: SUPERSET_PASSWORD,
       provider: "db",
       refresh: true,
     }),
   });
-
-  const data = await res.json();
-  adminToken = data.access_token;
-  tokenExpire = new Date(new Date().getTime() + 55 * 60 * 1000); // 55 min expiry
-  return adminToken;
+  const data = await resp.json();
+  return data.access_token;
 }
 
-// API to fetch dashboard data by company ID
-app.post("/company-data", async (req, res) => {
+// 🎯 generate guest token for embed
+app.post("/superset-guest-token", async (req, res) => {
   try {
-    const { companyId } = req.body;
-    const token = await loginAdmin();
+    const { companyId } = req.body; // frontend passes companyId
+    const token = await getAccessToken();
 
-    // Example: get dashboard 12
-    const dashboardRes = await fetch(`${SUPERSET_URL}/api/v1/dashboard/12/`, {
+    const guestResp = await fetch(`${SUPERSET_BASE_URL}/api/v1/security/guest_token/`, {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify({
+        resources: [
+          {
+            type: "dashboard",
+            id: "0ca85b14-d815-4107-8f5f-adea5e49bc39", // your dashboard UUID
+          },
+        ],
+        rls: [
+          {
+            clause: `company_id = ${companyId}`,
+            dataset: 25,
+          },
+        ],
+        user: {
+          username: `company_${companyId}`,
+          first_name: "Company",
+          last_name: companyId,
+        },
+      }),
     });
 
-    const dashboardData = await dashboardRes.json();
-
-    // Return filtered data (here we just pass the whole dashboard)
-    res.json({ dashboard: dashboardData, companyId });
+    const guestData = await guestResp.json();
+    res.json(guestData);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch Superset data" });
+    console.error("Guest token error:", err);
+    res.status(500).json({ error: "Failed to fetch guest token" });
   }
 });
 
-app.listen(4000, () => console.log("Server running on port 4000"));
+app.listen(5000, () => {
+  console.log("Backend running on port 5000");
+});
