@@ -1,52 +1,51 @@
-// App.jsx
-import React, { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { embedDashboard } from "@superset-ui/embedded-sdk";
 
-function App() {
-  const [companyId, setCompanyId] = useState("");
-  const [guestToken, setGuestToken] = useState("");
+export default function App() {
+  const [guestToken, setGuestToken] = useState(null);
+  const containerRef = useRef(null);
 
-  const handleLogin = async () => {
-    try {
-      const res = await fetch(
-        "https://fantastic-barnacle.onrender.com/superset-guest-token",
-        {
+  // fetch guest token from backend
+  useEffect(() => {
+    async function fetchToken() {
+      try {
+        const resp = await fetch("https://fantastic-barnacle.onrender.com/superset-guest-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ companyId }),
-        }
-      );
-
-      const data = await res.json();
-      console.log("Guest token response:", data);
-      if (data.token) setGuestToken(data.token);
-    } catch (err) {
-      console.error("Login error:", err);
+          body: JSON.stringify({ companyId: 20008 }),
+        });
+        const data = await resp.json();
+        setGuestToken(data.token);
+      } catch (err) {
+        console.error("Login error:", err);
+      }
     }
-  };
+    fetchToken();
+  }, []);
+
+  // once token is available, embed dashboard
+  useEffect(() => {
+    if (!guestToken || !containerRef.current) return;
+
+    embedDashboard({
+      id: "0ca85b14-d815-4107-8f5f-adea5e49bc39", // dashboard UUID
+      supersetDomain: "https://superset-develop.solargraf.com",
+      mountPoint: containerRef.current,
+      fetchGuestToken: async () => guestToken,
+      dashboardUiConfig: {
+        hideTitle: true,
+        hideChartControls: true,
+      },
+    });
+  }, [guestToken]);
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Superset Dashboard Embed</h2>
-
-      <input
-        type="text"
-        placeholder="Enter Company ID"
-        value={companyId}
-        onChange={(e) => setCompanyId(e.target.value)}
-      />
-      <button onClick={handleLogin}>Login & Get Dashboard</button>
-
-      {guestToken && (
-        <iframe
-          src={`https://superset-develop.solargraf.com/embedded/0ca85b14-d815-4107-8f5f-adea5e49bc39/?guest_token=${guestToken}`}
-          title="Superset Dashboard"
-          width="100%"
-          height="800"
-          frameBorder="0"
-        />
+    <div style={{ height: "100vh", width: "100%" }}>
+      {!guestToken ? (
+        <p>Loading dashboard...</p>
+      ) : (
+        <div ref={containerRef} style={{ height: "100%", width: "100%" }} />
       )}
     </div>
   );
 }
-
-export default App;

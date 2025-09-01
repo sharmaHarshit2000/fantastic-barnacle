@@ -18,11 +18,27 @@ app.use(
   })
 );
 
+import express from "express";
+import cors from "cors";
+import fetch from "node-fetch";
+
+const app = express();
+app.use(express.json());
+
+// ✅ Allow your frontend domain
+app.use(
+  cors({
+    origin: "https://fantastic-barnacle-eta.vercel.app", // your deployed frontend
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
+
 const SUPERSET_BASE_URL = "https://superset-develop.solargraf.com";
 const SUPERSET_USERNAME = "admin";
 const SUPERSET_PASSWORD = "admin";
 
-// helper: login and get JWT
+// 🔑 helper: login and get JWT
 async function getAccessToken() {
   const resp = await fetch(`${SUPERSET_BASE_URL}/api/v1/security/login`, {
     method: "POST",
@@ -54,7 +70,7 @@ app.post("/superset-guest-token", async (req, res) => {
         resources: [
           {
             type: "dashboard",
-            id: "0ca85b14-d815-4107-8f5f-adea5e49bc39", // your dashboard UUID
+            id: "0ca85b14-d815-4107-8f5f-adea5e49bc39", // dashboard UUID
           },
         ],
         rls: [
