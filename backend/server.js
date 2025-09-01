@@ -6,29 +6,10 @@ import fetch from "node-fetch";
 const app = express();
 app.use(express.json());
 
-// ✅ allow your frontend domain
+// ✅ allow only your deployed frontend
 app.use(
   cors({
-    origin: [
-      "https://fantastic-barnacle.onrender.com",   // backend
-      "https://fantastic-barnacle-eta.vercel.app", // frontend
-    ],
-    methods: ["GET", "POST"],
-    credentials: true,
-  })
-);
-
-import express from "express";
-import cors from "cors";
-import fetch from "node-fetch";
-
-const app = express();
-app.use(express.json());
-
-// ✅ Allow your frontend domain
-app.use(
-  cors({
-    origin: "https://fantastic-barnacle-eta.vercel.app", // your deployed frontend
+    origin: "https://fantastic-barnacle-eta.vercel.app", // frontend (vercel)
     methods: ["GET", "POST"],
     credentials: true,
   })
@@ -96,5 +77,5 @@ app.post("/superset-guest-token", async (req, res) => {
 });
 
 app.listen(5000, () => {
-  console.log("Backend running on port 5000");
+  console.log("✅ Backend running on port 5000");
 });
