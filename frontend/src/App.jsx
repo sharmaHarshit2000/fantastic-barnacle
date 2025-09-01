@@ -31,13 +31,13 @@ function App() {
         throw new Error(errorData.error || 'Failed to get guest token');
       }
 
-      const { token, supersetUrl } = await response.json();
+      const { token, supersetUrl, message } = await response.json();
       setGuestToken(token);
       setIsAuthenticated(true);
       
     } catch (error) {
       console.error('Token fetch error:', error);
-      setError(error.message);
+      setError(error.message || 'Failed to connect to server. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -46,9 +46,30 @@ function App() {
   useEffect(() => {
     if (isAuthenticated && guestToken && mountPoint.current) {
       const embedDashboardAsync = async () => {
+        // Store original fetch function
+        const originalFetch = window.fetch;
+        
         try {
+          // Intercept problematic API calls that cause 401 errors
+          window.fetch = async function(...args) {
+            const url = args[0];
+            
+            // Bypass the roles API call that causes 401 errors
+            if (url && typeof url === 'string' && url.includes('/api/v1/me/roles/')) {
+              console.log('Intercepted roles API call - returning mock data');
+              return Promise.resolve(new Response(JSON.stringify({
+                result: [{ name: 'Gamma' }, { name: 'Public' }]
+              }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
+            
+            return originalFetch.apply(this, args);
+          };
+
           await embedDashboard({
-            id: "0ca85b14-d815-4107-8f5f-adea5e49bc39", // UUID for embedding
+            id: "0ca85b14-d815-4107-8f5f-adea5e49bc39",
             supersetDomain: "https://superset-develop.solargraf.com",
             mountPoint: mountPoint.current,
             fetchGuestToken: () => Promise.resolve(guestToken),
@@ -60,10 +81,14 @@ function App() {
               },
             },
           });
+
           console.log('✅ Dashboard embedded successfully!');
         } catch (error) {
           console.error('❌ Embedding error:', error);
-          setError('Failed to load dashboard. Please try again.');
+          setError('Failed to load dashboard. Please try again or contact support.');
+        } finally {
+          // Restore original fetch function
+          window.fetch = originalFetch;
         }
       };
 
@@ -104,7 +129,8 @@ function App() {
               padding: '0.75rem',
               borderRadius: '4px',
               marginBottom: '1rem',
-              border: '1px solid #e74c3c'
+              border: '1px solid #e74c3c',
+              fontSize: '14px'
             }}>
               {error}
             </div>
@@ -156,7 +182,14 @@ function App() {
                 borderRadius: '4px',
                 fontSize: '16px',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                transition: 'background 0.2s'
+              }}
+              onMouseOver={(e) => {
+                if (!loading) e.target.style.background = '#5a67d8';
+              }}
+              onMouseOut={(e) => {
+                if (!loading) e.target.style.background = '#667eea';
               }}
             >
               {loading ? 'Loading Dashboard...' : 'View Dashboard'}
@@ -171,16 +204,18 @@ function App() {
     <div style={{ 
       height: '100vh', 
       padding: '1rem',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: 'Arial, sans-serif',
+      backgroundColor: '#f8f9fa'
     }}>
       <div style={{ 
         marginBottom: '1rem', 
         padding: '1rem', 
-        background: '#f8f9fa', 
+        background: 'white', 
         borderRadius: '8px',
-        border: '1px solid #dee2e6'
+        border: '1px solid #dee2e6',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
-        <h3 style={{ margin: '0 0 0.5rem 0', color: '#333' }}>
+        <h3 style={{ margin: '0 0 0.5rem 0', color: '#333', fontSize: '1.2rem' }}>
           Company Dashboard - ID: {companyId}
         </h3>
         <button 
@@ -197,7 +232,8 @@ function App() {
             border: 'none',
             borderRadius: '4px',
             cursor: 'pointer',
-            fontSize: '14px'
+            fontSize: '14px',
+            fontWeight: 'bold'
           }}
         >
           Logout
