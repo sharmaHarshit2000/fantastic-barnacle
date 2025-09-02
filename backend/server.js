@@ -4,9 +4,9 @@ const cors = require('cors');
 
 const app = express();
 
-// SIMPLE CORS configuration - Remove any complex logic
+// Simple CORS configuration
 app.use(cors({
-  origin: true, // Allow all origins
+  origin: true,
   credentials: true
 }));
 
@@ -19,7 +19,7 @@ const SUPERSET_BASE_URL = "https://superset-develop.solargraf.com";
 const DASHBOARD_ID = "0ca85b14-d815-4107-8f5f-adea5e49bc39";
 const DATASET_ID = 25;
 
-// Guest token endpoint
+// Guest token endpoint with EXACT filter structure from API
 app.post('/api/superset/guest-token', async (req, res) => {
   try {
     const { companyId } = req.body;
@@ -33,6 +33,7 @@ app.post('/api/superset/guest-token', async (req, res) => {
         type: "dashboard", 
         id: DASHBOARD_ID
       }],
+      // RLS for database-level security
       rls: [{ 
         dataset: DATASET_ID, 
         clause: `company_id = '${companyId}'` 
@@ -41,6 +42,34 @@ app.post('/api/superset/guest-token', async (req, res) => {
         username: "admin",
         first_name: "Admin",
         last_name: "User"
+      },
+      // EXACT FILTER STRUCTURE FROM THE API CALL
+      extra_form_data: {
+        "filters": [
+          {
+            "col": "company_id",
+            "op": "IN",
+            "val": [parseInt(companyId)]
+          }
+        ]
+      },
+      // Also include filter_state for UI pre-selection
+      filter_state: {
+        "NATIVE_FILTER-COMPANY": {
+          "id": "NATIVE_FILTER-COMPANY",
+          "extraFormData": {
+            "filters": [
+              {
+                "col": "company_id",
+                "op": "IN",
+                "val": [parseInt(companyId)]
+              }
+            ]
+          },
+          "currentState": {
+            "value": parseInt(companyId)
+          }
+        }
       },
       exp: Math.floor(Date.now() / 1000) + 300
     };
@@ -52,8 +81,7 @@ app.post('/api/superset/guest-token', async (req, res) => {
     res.json({ 
       token, 
       supersetUrl: SUPERSET_BASE_URL,
-      dashboardId: DASHBOARD_ID,
-      message: "Token generated successfully"
+      message: `Dashboard pre-filtered for company ${companyId}`
     });
 
   } catch (error) {
@@ -65,18 +93,12 @@ app.post('/api/superset/guest-token', async (req, res) => {
   }
 });
 
-// Health check endpoint
+// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'Backend server is running',
-    timestamp: new Date().toISOString()
-  });
+  res.json({ status: 'OK', message: 'Server running' });
 });
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`✅ Backend server running on port ${PORT}`);
-  console.log(`✅ Health check: http://localhost:${PORT}/api/health`);
-  console.log(`✅ Token endpoint: http://localhost:${PORT}/api/superset/guest-token`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
