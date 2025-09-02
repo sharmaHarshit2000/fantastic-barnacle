@@ -7,6 +7,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [guestToken, setGuestToken] = useState(null);
   const [error, setError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
   const mountPoint = useRef(null);
 
   const handleLogin = async (e) => {
@@ -15,9 +16,10 @@ function App() {
 
     setLoading(true);
     setError(null);
+    setDebugInfo('');
     
     try {
-      // Use LIVE backend URL
+      setDebugInfo('Fetching guest token from backend...');
       const response = await fetch('https://fantastic-barnacle.onrender.com/api/superset/guest-token', {
         method: 'POST',
         headers: {
@@ -27,17 +29,20 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get guest token');
+        const errorText = await response.text();
+        setDebugInfo(`Backend error: ${response.status} - ${errorText}`);
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
       }
 
       const { token, supersetUrl, message } = await response.json();
+      setDebugInfo('Token received successfully. Starting dashboard embedding...');
       setGuestToken(token);
       setIsAuthenticated(true);
       
     } catch (error) {
       console.error('Token fetch error:', error);
       setError(error.message || 'Failed to connect to server. Please try again.');
+      setDebugInfo(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -46,33 +51,22 @@ function App() {
   useEffect(() => {
     if (isAuthenticated && guestToken && mountPoint.current) {
       const embedDashboardAsync = async () => {
-        // Store original fetch function
-        const originalFetch = window.fetch;
+        setDebugInfo('Attempting to embed dashboard...');
         
         try {
-          // Intercept problematic API calls that cause 401 errors
-          window.fetch = async function(...args) {
-            const url = args[0];
-            
-            // Bypass the roles API call that causes 401 errors
-            if (url && typeof url === 'string' && url.includes('/api/v1/me/roles/')) {
-              console.log('Intercepted roles API call - returning mock data');
-              return Promise.resolve(new Response(JSON.stringify({
-                result: [{ name: 'Gamma' }, { name: 'Public' }]
-              }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-              }));
-            }
-            
-            return originalFetch.apply(this, args);
-          };
+          // Add a timeout to prevent hanging
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Dashboard embedding timeout after 30 seconds')), 30000)
+          );
 
-          await embedDashboard({
+          const embedPromise = embedDashboard({
             id: "0ca85b14-d815-4107-8f5f-adea5e49bc39",
             supersetDomain: "https://superset-develop.solargraf.com",
             mountPoint: mountPoint.current,
-            fetchGuestToken: () => Promise.resolve(guestToken),
+            fetchGuestToken: () => {
+              setDebugInfo('Guest token provided to Superset SDK');
+              return Promise.resolve(guestToken);
+            },
             dashboardUiConfig: {
               hideTitle: true,
               hideTab: true,
@@ -82,13 +76,27 @@ function App() {
             },
           });
 
-          console.log('✅ Dashboard embedded successfully!');
+          await Promise.race([embedPromise, timeoutPromise]);
+          setDebugInfo('✅ Dashboard embedded successfully!');
+          
         } catch (error) {
           console.error('❌ Embedding error:', error);
-          setError('Failed to load dashboard. Please try again or contact support.');
-        } finally {
-          // Restore original fetch function
-          window.fetch = originalFetch;
+          setError(`Failed to load dashboard: ${error.message}`);
+          setDebugInfo(`Embedding failed: ${error.message}`);
+          
+          // Show the mount point for debugging
+          if (mountPoint.current) {
+            mountPoint.current.innerHTML = `
+              <div style="padding: 20px; text-align: center; color: #666;">
+                <h3>Dashboard Failed to Load</h3>
+                <p>Error: ${error.message}</p>
+                <p>Check console for details</p>
+                <button onclick="window.location.reload()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                  Try Again
+                </button>
+              </div>
+            `;
+          }
         }
       };
 
@@ -132,7 +140,23 @@ function App() {
               border: '1px solid #e74c3c',
               fontSize: '14px'
             }}>
-              {error}
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+
+          {debugInfo && (
+            <div style={{
+              color: '#666',
+              background: '#f0f8ff',
+              padding: '0.75rem',
+              borderRadius: '4px',
+              marginBottom: '1rem',
+              border: '1px solid #b3d9ff',
+              fontSize: '12px',
+              maxHeight: '100px',
+              overflow: 'auto'
+            }}>
+              <strong>Debug:</strong> {debugInfo}
             </div>
           )}
 
@@ -182,17 +206,10 @@ function App() {
                 borderRadius: '4px',
                 fontSize: '16px',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold',
-                transition: 'background 0.2s'
-              }}
-              onMouseOver={(e) => {
-                if (!loading) e.target.style.background = '#5a67d8';
-              }}
-              onMouseOut={(e) => {
-                if (!loading) e.target.style.background = '#667eea';
+                fontWeight: 'bold'
               }}
             >
-              {loading ? 'Loading Dashboard...' : 'View Dashboard'}
+              {loading ? 'Loading...' : 'View Dashboard'}
             </button>
           </form>
         </div>
@@ -218,12 +235,30 @@ function App() {
         <h3 style={{ margin: '0 0 0.5rem 0', color: '#333', fontSize: '1.2rem' }}>
           Company Dashboard - ID: {companyId}
         </h3>
+        
+        {debugInfo && (
+          <div style={{
+            color: '#666',
+            background: '#f0f8ff',
+            padding: '0.5rem',
+            borderRadius: '4px',
+            marginBottom: '0.5rem',
+            border: '1px solid #b3d9ff',
+            fontSize: '11px',
+            maxHeight: '60px',
+            overflow: 'auto'
+          }}>
+            <strong>Status:</strong> {debugInfo}
+          </div>
+        )}
+        
         <button 
           onClick={() => {
             setIsAuthenticated(false);
             setCompanyId('');
             setGuestToken(null);
             setError(null);
+            setDebugInfo('');
           }}
           style={{
             padding: '0.5rem 1rem',
@@ -243,12 +278,18 @@ function App() {
       <div 
         ref={mountPoint} 
         style={{ 
-          height: 'calc(100vh - 100px)', 
+          height: 'calc(100vh - 150px)', 
           border: '2px dashed #ddd',
           borderRadius: '8px',
-          background: '#fafafa'
+          background: '#fafafa',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: '#666'
         }}
-      />
+      >
+        {!debugInfo.includes('successfully') && 'Loading dashboard...'}
+      </div>
     </div>
   );
 }
