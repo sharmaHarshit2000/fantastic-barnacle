@@ -4,12 +4,10 @@ const cors = require('cors');
 
 const app = express();
 
-// SIMPLIFIED CORS configuration - Remove complex origin checking
+// SIMPLE CORS configuration - Remove any complex logic
 app.use(cors({
-  origin: true, // Allow all origins in development
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: true, // Allow all origins
+  credentials: true
 }));
 
 app.use(express.json());
@@ -74,14 +72,6 @@ app.get('/api/health', (req, res) => {
     message: 'Backend server is running',
     timestamp: new Date().toISOString()
   });
-});
-
-// Handle preflight requests - SIMPLIFIED
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.sendStatus(200);
 });
 
 const PORT = process.env.PORT || 3001;
