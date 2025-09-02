@@ -2,10 +2,10 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js", // <-- CHANGE THIS LINE
+  "main": "server.js", 
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js" // <-- ADD THIS LINE
+    "start": "node server.js" 
   },
   "keywords": [],
   "author": "",
